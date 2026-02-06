@@ -107,6 +107,109 @@ class TestPrompts:
         # The updated_at should be different from original
         # assert data["updated_at"] != original_updated_at  # Uncomment after fix
     
+    def test_update_prompt_updates_timestamp(self, client: TestClient, sample_prompt_data):
+        """Test that updated_at timestamp changes when prompt is updated.
+        
+        Verifies Bug #2 is fixed - updated_at should reflect the current time.
+        """
+        import time
+        from datetime import datetime
+        
+        # Create a prompt
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+        original_updated_at = create_response.json()["updated_at"]
+        
+        # Wait a bit to ensure time passes
+        time.sleep(0.2)
+        
+        # Update the prompt
+        updated_data = {
+            "title": "Updated Title",
+            "content": "Updated content",
+            "description": "Updated description"
+        }
+        
+        update_response = client.put(f"/prompts/{prompt_id}", json=updated_data)
+        new_updated_at = update_response.json()["updated_at"]
+        
+        # Verify the timestamp was updated
+        assert new_updated_at != original_updated_at, \
+            "Bug #2: updated_at should change when prompt is updated"
+    
+    def test_update_prompt_timestamp_is_current(self, client: TestClient, sample_prompt_data):
+        """Test that updated_at is approximately the current time after update.
+        
+        Verifies the timestamp is not stale or incorrect.
+        """
+        import time
+        from datetime import datetime
+        
+        # Create a prompt
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+        
+        # Record time before update
+        time_before_update = datetime.utcnow()
+        
+        # Update the prompt
+        updated_data = {
+            "title": "New Title",
+            "content": "New content here",
+            "description": "New desc"
+        }
+        
+        update_response = client.put(f"/prompts/{prompt_id}", json=updated_data)
+        updated_at_str = update_response.json()["updated_at"]
+        
+        # Parse the returned datetime
+        # Handle both ISO format strings and datetime objects
+        if isinstance(updated_at_str, str):
+            updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+        else:
+            updated_at = datetime.fromisoformat(str(updated_at_str))
+        
+        time_after_update = datetime.utcnow()
+        
+        # Verify updated_at is between before and after (within 1 second tolerance)
+        assert time_before_update <= updated_at <= time_after_update, \
+            "updated_at should be approximately current time, not stale"
+    
+    def test_update_prompt_preserves_created_at(self, client: TestClient, sample_prompt_data):
+        """Test that created_at stays the same but updated_at changes.
+        
+        Verifies that only the updated_at timestamp is modified, not created_at.
+        """
+        import time
+        
+        # Create a prompt
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+        original_created_at = create_response.json()["created_at"]
+        original_updated_at = create_response.json()["updated_at"]
+        
+        # Wait briefly
+        time.sleep(0.2)
+        
+        # Update the prompt
+        updated_data = {
+            "title": "Modified Title",
+            "content": "Modified content text",
+            "description": "Modified description"
+        }
+        
+        update_response = client.put(f"/prompts/{prompt_id}", json=updated_data)
+        new_created_at = update_response.json()["created_at"]
+        new_updated_at = update_response.json()["updated_at"]
+        
+        # Verify created_at hasn't changed
+        assert new_created_at == original_created_at, \
+            "created_at should not change when updating a prompt"
+        
+        # Verify updated_at did change
+        assert new_updated_at != original_updated_at, \
+            "updated_at should change when updating a prompt"
+    
     def test_sorting_order(self, client: TestClient):
         """Test that prompts are sorted newest first.
         
@@ -127,6 +230,92 @@ class TestPrompts:
         
         # Newest (Second) should be first
         assert prompts[0]["title"] == "Second"  # Will fail until Bug #3 fixed
+    
+    def test_patch_partial_update_single_field(self, client: TestClient, sample_prompt_data):
+        """Test PATCH endpoint with only one field updated.
+        
+        Verifies that PATCH can update just the title while preserving
+        content and description.
+        """
+        import time
+        
+        # Create a prompt
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+        original_content = create_response.json()["content"]
+        original_description = create_response.json()["description"]
+        
+        time.sleep(0.1)
+        
+        # Patch with only title
+        patch_data = {"title": "Patched Title"}
+        response = client.patch(f"/prompts/{prompt_id}", json=patch_data)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["title"] == "Patched Title"
+        assert data["content"] == original_content, "Content should be preserved"
+        assert data["description"] == original_description, "Description should be preserved"
+    
+    def test_patch_partial_update_multiple_fields(self, client: TestClient, sample_prompt_data):
+        """Test PATCH endpoint with multiple fields but not all.
+        
+        Verifies that PATCH can update title and content while preserving
+        description.
+        """
+        import time
+        
+        # Create a prompt
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+        original_description = create_response.json()["description"]
+        
+        time.sleep(0.1)
+        
+        # Patch with title and content, but not description
+        patch_data = {
+            "title": "New Patched Title",
+            "content": "New patched content here"
+        }
+        response = client.patch(f"/prompts/{prompt_id}", json=patch_data)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["title"] == "New Patched Title"
+        assert data["content"] == "New patched content here"
+        assert data["description"] == original_description, "Description should be preserved when not provided"
+    
+    def test_patch_updates_timestamp(self, client: TestClient, sample_prompt_data):
+        """Test that PATCH updates the updated_at timestamp.
+        
+        Verifies that even partial updates correctly set updated_at to
+        current time while preserving created_at.
+        """
+        import time
+        from datetime import datetime
+        
+        # Create a prompt
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+        original_created_at = create_response.json()["created_at"]
+        original_updated_at = create_response.json()["updated_at"]
+        
+        time.sleep(0.2)
+        
+        # Patch with just one field
+        patch_data = {"title": "Patched Title"}
+        patch_response = client.patch(f"/prompts/{prompt_id}", json=patch_data)
+        
+        assert patch_response.status_code == 200
+        data = patch_response.json()
+        
+        # Verify created_at didn't change
+        assert data["created_at"] == original_created_at, \
+            "created_at should not change with PATCH"
+        
+        # Verify updated_at did change
+        assert data["updated_at"] != original_updated_at, \
+            "updated_at should change with PATCH"
 
 
 class TestCollections:
@@ -169,11 +358,116 @@ class TestCollections:
         
         # Delete collection
         client.delete(f"/collections/{collection_id}")
-        
         # The prompt still exists but has invalid collection_id
         # This is Bug #4 - should be handled properly
         prompts = client.get("/prompts").json()["prompts"]
-        if prompts:
-            # Prompt exists with orphaned collection_id
-            assert prompts[0]["collection_id"] == collection_id
-            # After fix, collection_id should be None or prompt should be deleted
+
+        assert len(prompts) == 0, "Prompts should be deleted when the collection is deleted"
+   
+
+
+class TestUpdateTimestamp:
+    """Tests for verifying updated_at timestamp is properly updated."""
+    
+    def test_update_prompt_updates_timestamp(self, client: TestClient, sample_prompt_data):
+        """Test that updated_at timestamp changes when prompt is updated.
+        
+        Verifies Bug #2 is fixed - updated_at should reflect the current time.
+        """
+        import time
+        from datetime import datetime
+        
+        # Create a prompt
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+        original_updated_at = create_response.json()["updated_at"]
+        
+        # Wait a bit to ensure time passes
+        time.sleep(0.2)
+        
+        # Update the prompt
+        updated_data = {
+            "title": "Updated Title",
+            "content": "Updated content",
+            "description": "Updated description"
+        }
+        
+        update_response = client.put(f"/prompts/{prompt_id}", json=updated_data)
+        new_updated_at = update_response.json()["updated_at"]
+        
+        # Verify the timestamp was updated
+        assert new_updated_at != original_updated_at, \
+            "Bug #2: updated_at should change when prompt is updated"
+    
+    def test_update_prompt_timestamp_is_current(self, client: TestClient, sample_prompt_data):
+        """Test that updated_at is approximately the current time after update.
+        
+        Verifies the timestamp is not stale or incorrect.
+        """
+        import time
+        from datetime import datetime
+        
+        # Create a prompt
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+        
+        # Record time before update
+        time_before_update = datetime.utcnow()
+        
+        # Update the prompt
+        updated_data = {
+            "title": "New Title",
+            "content": "New content here",
+            "description": "New desc"
+        }
+        
+        update_response = client.put(f"/prompts/{prompt_id}", json=updated_data)
+        updated_at_str = update_response.json()["updated_at"]
+        
+        # Parse the returned datetime
+        # Handle both ISO format strings and datetime objects
+        if isinstance(updated_at_str, str):
+            updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+        else:
+            updated_at = datetime.fromisoformat(str(updated_at_str))
+        
+        time_after_update = datetime.utcnow()
+        
+        # Verify updated_at is between before and after (within 1 second tolerance)
+        assert time_before_update <= updated_at <= time_after_update, \
+            "updated_at should be approximately current time, not stale"
+    
+    def test_update_prompt_preserves_created_at(self, client: TestClient, sample_prompt_data):
+        """Test that created_at stays the same but updated_at changes.
+        
+        Verifies that only the updated_at timestamp is modified, not created_at.
+        """
+        import time
+        
+        # Create a prompt
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+        original_created_at = create_response.json()["created_at"]
+        original_updated_at = create_response.json()["updated_at"]
+        
+        # Wait briefly
+        time.sleep(0.2)
+        
+        # Update the prompt
+        updated_data = {
+            "title": "Modified Title",
+            "content": "Modified content text",
+            "description": "Modified description"
+        }
+        
+        update_response = client.put(f"/prompts/{prompt_id}", json=updated_data)
+        new_created_at = update_response.json()["created_at"]
+        new_updated_at = update_response.json()["updated_at"]
+        
+        # Verify created_at hasn't changed
+        assert new_created_at == original_created_at, \
+            "created_at should not change when updating a prompt"
+        
+        # Verify updated_at did change
+        assert new_updated_at != original_updated_at, \
+            "updated_at should change when updating a prompt"
