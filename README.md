@@ -278,6 +278,30 @@ curl -X GET http://localhost:8000/prompts/550e8400-e29b-41d4-a716-446655440000
 
 ## Development Setup
 
+### How to Run with Docker
+
+```bash
+# From the repository root
+docker compose up --build
+```
+
+The API will be available at:
+- `http://localhost:8000`
+- `http://localhost:8000/docs`
+
+Common commands:
+
+```bash
+# Run in detached mode
+docker compose up -d --build
+
+# Stop services
+docker compose down
+
+# View logs
+docker compose logs -f backend
+```
+
 ### Running in Development Mode
 
 ```bash
