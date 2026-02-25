@@ -1,167 +1,500 @@
 # PromptLab
 
-**Your AI Prompt Engineering Platform**
+**Enterprise-Grade AI Prompt Engineering Platform**
+
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/fastapi-latest-009688.svg)](https://fastapi.tiangolo.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ---
 
-## Welcome to the Team! 👋
+## Project Overview
 
-Congratulations on joining the PromptLab engineering team! You've been brought on to help us build the next generation of prompt engineering tools.
+**PromptLab** is a professional-grade platform designed for AI engineers, data scientists, and prompt specialists to collaboratively store, organize, and manage AI prompts with precision and scale.
 
-### What is PromptLab?
+### Problem Statement
 
-PromptLab is an internal tool for AI engineers to **store, organize, and manage their prompts**. Think of it as a "Postman for Prompts" — a professional workspace where teams can:
+AI teams waste significant time managing prompt variations, searching through ad-hoc documents, and losing institutional knowledge. PromptLab centralizes prompt management through a clean, RESTful API with persistent storage, powerful search capabilities, and intuitive organization through collections.
 
-- 📝 Store prompt templates with variables (`{{input}}`, `{{context}}`)
-- 📁 Organize prompts into collections
-- 🏷️ Tag and search prompts
-- 📜 Track version history
-- 🧪 Test prompts with sample inputs
+### Target Audience
 
-### The Current Situation
+- AI/ML engineers and teams
+- Prompt specialists managing multiple language models
+- Organizations requiring audit trails and version control for prompts
+- Development teams integrating LLM capabilities into production applications
 
-The previous developer left us with a *partially working* backend. The core structure is there, but:
+### Architecture Overview
 
-- There are **several bugs** that need fixing
-- Some **features are incomplete**
-- The **documentation is minimal** (you'll fix that)
-- There are **no tests** worth mentioning
-- **No CI/CD pipeline** exists
-- **No frontend** has been built yet
+PromptLab follows a **three-tier architecture**:
 
-Your job over the next 4 weeks is to transform this into a **production-ready, full-stack application**.
+```
+┌──────────────────┐
+│   FastAPI REST   │  HTTP Layer (OpenAPI spec)
+├──────────────────┤
+│   Business Logic │  Models, validation, utilities
+├──────────────────┤
+│  SQLite Storage  │  Persistent data layer
+└──────────────────┘
+```
 
 ---
 
-## Quick Start
+## Features
 
-### Prerequisites
+### Core Prompt Management
+- **Create & Store Prompts**: Store prompts with title, content, description, and metadata
+- **Full CRUD Operations**: Complete create, read, update, and delete support for prompts
+- **Partial Updates**: PATCH endpoint for targeted field updates without overwriting unchanged data
+- **Template Variables**: Support for prompt templating with `{{variable}}` syntax
 
-- Python 3.10+
-- Node.js 18+ (for Week 4)
-- Git
+### Organization & Discovery
+- **Collections**: Group related prompts into logical collections
+- **Full-Text Search**: Case-insensitive search across prompt titles and descriptions
+- **Filtering**: Filter prompts by collection membership
+- **Sorting**: Automatic sorting by creation date with ascending/descending options
 
-### Run Locally
+### API & Integration
+- **RESTful Design**: Standard HTTP methods and status codes for predictable integration
+- **OpenAPI Documentation**: Auto-generated interactive API documentation at `/docs`
+- **Pydantic Validation**: Strict type validation and automatic request/response serialization
+- **CORS Support**: Cross-origin requests enabled for frontend integration
+- **Production-Ready Error Handling**: Descriptive HTTP exceptions with appropriate status codes
+
+### Data Persistence
+- **SQLite Database**: Lightweight, serverless persistence suitable for development and production
+- **Transaction Support**: Atomic operations with proper session management
+- **Indexed Queries**: Optimized database indexing on frequently queried fields
+- **Data Integrity**: Foreign key relationships and validation constraints
+
+---
+
+## Prerequisites
+
+### System Requirements
+- **Python**: 3.10 or higher
+- **pip**: Package installer for Python
+- **Git**: Version control system
+
+### Runtime Dependencies
+All dependencies are specified in `requirements.txt`:
+- FastAPI 0.104.1
+- Uvicorn (ASGI server)
+- SQLAlchemy (ORM)
+- Pydantic (data validation)
+- pytest (testing framework)
+
+### Environment Setup
+- No external services required (SQLite is included)
+- No special accounts or API keys needed for local development
+
+---
+
+## Installation
+
+### 1. Clone the Repository
 
 ```bash
-# Clone the repo
-git clone <your-repo-url>
-cd promptlab
+git clone https://github.com/SarasAI-Institute/10x-engineer-project-repo.git
+cd 10x-engineer-project-repo/backend
+```
 
-# Set up backend
-cd backend
+### 2. Create Virtual Environment
+
+```bash
+# macOS/Linux
+python3.10 -m venv venv
+source venv/bin/activate
+
+# Windows
+python -m venv venv
+venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
+```bash
 pip install -r requirements.txt
+```
+
+### 4. Configure Environment (Optional)
+
+Create a `.env` file in the backend directory:
+
+```env
+# Database Configuration
+DATABASE_URL=sqlite:///promptlab.db
+
+# API Configuration
+API_TITLE=PromptLab API
+API_VERSION=1.0.0
+API_DESCRIPTION=AI Prompt Engineering Platform
+
+# Server Configuration
+DEBUG=False
+HOST=0.0.0.0
+PORT=8000
+```
+
+### 5. Initialize Database
+
+The database is automatically created on first run. No manual migrations are required.
+
+```bash
+# Database file will be created at: backend/promptlab.db
+```
+
+---
+
+## Quick Start Guide
+
+### Running the Server
+
+```bash
+cd backend
 python main.py
 ```
 
-API runs at: http://localhost:8000
+**Expected Output:**
+```
+INFO:     Uvicorn running on http://127.0.0.1:8000
+INFO:     Application startup complete
+```
 
-API docs at: http://localhost:8000/docs
+### Accessing the Application
 
-### Run Tests
+- **API Endpoint**: http://localhost:8000
+- **Interactive API Docs**: http://localhost:8000/docs (Swagger UI)
+- **Alternative Docs**: http://localhost:8000/redoc (ReDoc)
+- **OpenAPI Schema**: http://localhost:8000/openapi.json
+
+### Example Requests
+
+#### 1. Health Check
+
+```bash
+curl -X GET http://localhost:8000/health
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "version": "1.0.0"
+}
+```
+
+#### 2. Create a Prompt
+
+```bash
+curl -X POST http://localhost:8000/prompts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Customer Service Response",
+    "content": "You are a helpful customer service agent. A customer has written: {{customer_inquiry}}. Respond professionally and briefly.",
+    "description": "Template for responding to customer inquiries",
+    "collection_id": null
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Customer Service Response",
+  "content": "You are a helpful customer service agent. A customer has written: {{customer_inquiry}}. Respond professionally and briefly.",
+  "description": "Template for responding to customer inquiries",
+  "collection_id": null,
+  "created_at": "2024-02-16T10:30:00",
+  "updated_at": "2024-02-16T10:30:00"
+}
+```
+
+#### 3. Search Prompts
+
+```bash
+curl -X GET "http://localhost:8000/prompts?search=customer" \
+  -H "Accept: application/json"
+```
+
+**Response:**
+```json
+{
+  "prompts": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Customer Service Response",
+      "content": "...",
+      "description": "Template for responding to customer inquiries",
+      "collection_id": null,
+      "created_at": "2024-02-16T10:30:00",
+      "updated_at": "2024-02-16T10:30:00"
+    }
+  ],
+  "total": 1
+}
+```
+
+#### 4. Retrieve a Specific Prompt
+
+```bash
+curl -X GET http://localhost:8000/prompts/550e8400-e29b-41d4-a716-446655440000
+```
+
+---
+
+## API Endpoint Summary
+
+### Prompts
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/prompts` | List all prompts (supports search & filter) | None |
+| GET | `/prompts/{prompt_id}` | Retrieve a specific prompt | None |
+| POST | `/prompts` | Create a new prompt | None |
+| PUT | `/prompts/{prompt_id}` | Replace entire prompt | None |
+| PATCH | `/prompts/{prompt_id}` | Partially update prompt | None |
+| DELETE | `/prompts/{prompt_id}` | Delete a prompt | None |
+
+**Query Parameters for GET /prompts:**
+- `search` (optional): Search in title and description
+- `collection_id` (optional): Filter by collection
+
+### Collections
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/collections` | List all collections | None |
+| GET | `/collections/{collection_id}` | Retrieve a collection | None |
+| POST | `/collections` | Create a new collection | None |
+| DELETE | `/collections/{collection_id}` | Delete collection and all prompts | None |
+
+### Health Check
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/health` | API health status | None |
+
+---
+
+## Development Setup
+
+### Running in Development Mode
 
 ```bash
 cd backend
+
+# With auto-reload on file changes
+uvicorn app.api:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Running Tests
+
+```bash
+cd backend
+
+# Run all tests with verbose output
 pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_api.py -v
+
+# Run with coverage
+pytest tests/ --cov=app
 ```
 
----
+### Code Formatting & Linting
 
-## Project Structure
+```bash
+# Format code with Black
+black app/ tests/
 
-```
-promptlab/
-├── README.md                    # You are here
-├── PROJECT_BRIEF.md             # Your assignment details
-├── GRADING_RUBRIC.md            # How you'll be graded
-│
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── api.py              # FastAPI routes (has bugs!)
-│   │   ├── models.py           # Pydantic models
-│   │   ├── storage.py          # In-memory storage
-│   │   └── utils.py            # Helper functions
-│   ├── tests/
-│   │   ├── __init__.py
-│   │   ├── test_api.py         # Basic tests
-│   │   └── conftest.py         # Test fixtures
-│   ├── main.py                 # Entry point
-│   └── requirements.txt
-│
-├── frontend/                    # You'll create this in Week 4
-├── specs/                       # You'll create this in Week 2
-├── docs/                        # You'll create this in Week 2
-└── .github/                     # You'll set up CI/CD in Week 3
+# Lint with Pylint
+pylint app/
+
+# Type checking with mypy
+mypy app/
 ```
 
----
+### Project Structure
 
-## Your Mission
+```
+backend/
+├── app/
+│   ├── __init__.py              # Package initialization
+│   ├── api.py                   # FastAPI routes and endpoints
+│   ├── models.py                # Pydantic data models
+│   ├── storage.py               # SQLite database layer
+│   └── utils.py                 # Helper and utility functions
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py              # Pytest configuration and fixtures
+│   └── test_api.py              # API endpoint tests
+├── main.py                      # Application entry point
+├── requirements.txt             # Python dependencies
+└── promptlab.db                 # SQLite database (auto-created)
+```
 
-### 🧪 Experimentation Encouraged!
-While we provide guidelines, **you are the engineer**. If you see a better way to solve a problem using AI, do it!
-- Want to swap the storage layer for a real database? **Go for it.**
-- Want to add Authentication? **Do it.**
-- Want to rewrite the API in a different style? **As long as tests pass, you're clear.**
+### Key Modules
 
-The goal is to learn how to build *better* software *faster* with AI. Don't be afraid to break things and rebuild them better.
-
-### Week 1: Fix the Backend
-- Understand this codebase using AI
-- Find and fix the bugs
-- Implement missing features
-
-### Week 2: Document Everything
-- Write proper documentation
-- Create feature specifications
-- Set up coding standards
-
-### Week 3: Make it Production-Ready
-- Write comprehensive tests
-- Implement new features with TDD
-- Set up CI/CD and Docker
-
-### Week 4: Build the Frontend
-- Create a React frontend
-- Connect it to the backend
-- Polish the user experience
+- **api.py**: FastAPI application with all HTTP endpoints
+- **models.py**: Pydantic models for request/response validation
+- **storage.py**: SQLAlchemy ORM and database operations
+- **utils.py**: Helper functions for sorting, filtering, and searching
 
 ---
 
-## API Endpoints (Current)
+## Contributing Guidelines
 
-| Method | Endpoint | Description | Status |
-|--------|----------|-------------|--------|
-| GET | `/health` | Health check | ✅ Works |
-| GET | `/prompts` | List all prompts | ⚠️ Has issues |
-| GET | `/prompts/{id}` | Get single prompt | ❌ Bug |
-| POST | `/prompts` | Create prompt | ✅ Works |
-| PUT | `/prompts/{id}` | Update prompt | ⚠️ Has issues |
-| DELETE | `/prompts/{id}` | Delete prompt | ✅ Works |
-| GET | `/collections` | List collections | ✅ Works |
-| GET | `/collections/{id}` | Get collection | ✅ Works |
-| POST | `/collections` | Create collection | ✅ Works |
-| DELETE | `/collections/{id}` | Delete collection | ❌ Bug |
+### Branching Strategy
+
+We follow a simplified Git Flow:
+
+```
+main (production)
+  └─ develop (staging)
+      └─ feature/*, bugfix/*, docs/*
+```
+
+**Branch Naming Convention:**
+- Features: `feature/feature-name`
+- Bug fixes: `bugfix/issue-description`
+- Documentation: `docs/topic-name`
+- Example: `feature/add-prompt-versioning`
+
+### Commit Message Format
+
+```
+<type>: <subject>
+
+<body>
+
+<footer>
+```
+
+**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+
+**Examples:**
+```
+feat: add support for prompt templates
+
+fix: correct collection deletion cascade behavior
+
+docs: update API endpoint documentation
+```
+
+### Pull Request Process
+
+1. **Create a well-scoped PR** against the `develop` branch
+2. **Provide a clear description** of changes and motivation
+3. **Link related issues** using `#issue-number`
+4. **Include test coverage** for new functionality
+5. **Request review** from team members
+6. **Address feedback** before merging
+
+**PR Template:**
+```
+## Description
+Brief summary of changes
+
+## Related Issues
+Fixes #123
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Documentation update
+
+## Testing
+- [ ] Added unit tests
+- [ ] All tests passing
+```
+
+### Code Style Expectations
+
+- **Language**: Python 3.10+
+- **Formatter**: Black (line length: 88)
+- **Linter**: Pylint
+- **Type Hints**: Required for function signatures
+- **Docstrings**: Google-style docstrings for all public functions and classes
+- **Testing**: Minimum 80% code coverage for new features
+
+**Style Guide:**
+```python
+# Good: Type hints and docstring
+def create_prompt(data: PromptCreate) -> Prompt:
+    """Create a new prompt in the database.
+    
+    Args:
+        data: Prompt creation request data.
+        
+    Returns:
+        The created Prompt object.
+    """
+    # implementation
+    pass
+
+# Good: Clear variable names
+user_prompts = storage.get_prompts_by_collection(collection_id)
+
+# Avoid: Unclear names
+ps = storage.get_prompts_by_collection(cid)
+```
+
+### Reporting Issues
+
+Use the GitHub issue tracker with these templates:
+
+**Bug Report:**
+- Title: `[BUG] Clear, specific title`
+- Description: Steps to reproduce, expected behavior, actual behavior
+- Example: `[BUG] Creating prompt with empty title raises 500 error`
+
+**Feature Request:**
+- Title: `[FEATURE] Clear title`
+- Description: Use case, proposed solution, alternatives considered
+- Example: `[FEATURE] Add batch import/export for prompts`
 
 ---
 
-## Tech Stack
+## Week 3 Submission Summary (Prompt Versions + TDD)
 
-- **Backend**: Python 3.10+, FastAPI, Pydantic
-- **Frontend**: React, Vite (Week 4)
-- **Testing**: pytest
-- **DevOps**: Docker, GitHub Actions (Week 3)
+Implemented the **Prompt Versions** feature using a test-driven workflow.
+
+### TDD Flow Used
+
+1. Added failing tests in `backend/tests/test_api.py` for version creation, listing, restore, and single-version retrieval.
+2. Implemented version data models in `backend/app/models.py`.
+3. Implemented storage support in `backend/app/storage.py` (create/list/get versions and cleanup).
+4. Implemented API endpoints in `backend/app/api.py`.
+5. Re-ran targeted tests and then full backend tests until all passed.
+
+### Prompt Versions Endpoints Added
+
+- `POST /prompts/{prompt_id}/versions` — create immutable snapshot
+- `GET /prompts/{prompt_id}/versions` — list prompt versions
+- `GET /prompts/{prompt_id}/versions/{version_id}` — get one version
+- `POST /prompts/{prompt_id}/versions/{version_id}/restore` — restore prompt from snapshot
+
+### Verification
+
+- Full backend test suite passes after implementation.
+- API documentation updated in `docs/API_REFERENCE.md` with request/response examples and error cases.
 
 ---
 
-## Need Help?
+## License
 
-1. **Use AI tools** — This is an AI-assisted coding course!
-2. Read the `PROJECT_BRIEF.md` for detailed instructions
-3. Check `GRADING_RUBRIC.md` to understand expectations
-4. Ask questions in the course forum
+This project is licensed under the MIT License. See [LICENSE](LICENSE) file for details.
 
 ---
 
-Good luck, and welcome to the team! 🚀
+## Support & Contact
+
+For issues, feature requests, or questions:
+- **GitHub Issues**: [Report an issue](https://github.com/SarasAI-Institute/10x-engineer-project-repo/issues)
+- **Documentation**: See `/docs` and `/specs` directories for detailed guides
+
+---
+
+**Last Updated**: February 2024  
+**Version**: 1.0.0

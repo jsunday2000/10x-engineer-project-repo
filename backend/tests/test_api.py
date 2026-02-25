@@ -471,3 +471,131 @@ class TestUpdateTimestamp:
         # Verify updated_at did change
         assert new_updated_at != original_updated_at, \
             "updated_at should change when updating a prompt"
+
+
+class TestPromptVersions:
+    """Tests for prompt versioning endpoints."""
+
+    def test_create_prompt_version(self, client: TestClient, sample_prompt_data):
+        """Create a version snapshot for an existing prompt."""
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+
+        version_response = client.post(f"/prompts/{prompt_id}/versions")
+        assert version_response.status_code == 201
+
+        version_data = version_response.json()
+        assert version_data["prompt_id"] == prompt_id
+        assert version_data["version_number"] == 1
+        assert version_data["title"] == sample_prompt_data["title"]
+        assert version_data["content"] == sample_prompt_data["content"]
+        assert "id" in version_data
+        assert "created_at" in version_data
+
+    def test_create_multiple_versions_increments_version_number(
+        self,
+        client: TestClient,
+        sample_prompt_data,
+    ):
+        """Increment version number for each new snapshot of the same prompt."""
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+
+        first = client.post(f"/prompts/{prompt_id}/versions")
+        assert first.status_code == 201
+        assert first.json()["version_number"] == 1
+
+        client.patch(
+            f"/prompts/{prompt_id}",
+            json={"title": "Updated once", "content": "Updated content once"},
+        )
+
+        second = client.post(f"/prompts/{prompt_id}/versions")
+        assert second.status_code == 201
+        assert second.json()["version_number"] == 2
+
+    def test_list_prompt_versions(self, client: TestClient, sample_prompt_data):
+        """List all versions for a prompt in creation order."""
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+
+        client.post(f"/prompts/{prompt_id}/versions")
+        client.patch(
+            f"/prompts/{prompt_id}",
+            json={"title": "New title", "content": "New content"},
+        )
+        client.post(f"/prompts/{prompt_id}/versions")
+
+        response = client.get(f"/prompts/{prompt_id}/versions")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["total"] == 2
+        assert len(data["versions"]) == 2
+        assert [version["version_number"] for version in data["versions"]] == [1, 2]
+
+    def test_restore_prompt_from_version(self, client: TestClient, sample_prompt_data):
+        """Restore prompt fields from a saved version snapshot."""
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+
+        version_response = client.post(f"/prompts/{prompt_id}/versions")
+        version_id = version_response.json()["id"]
+
+        client.patch(
+            f"/prompts/{prompt_id}",
+            json={
+                "title": "Drifted title",
+                "content": "Drifted content",
+                "description": "Drifted description",
+            },
+        )
+
+        restore_response = client.post(f"/prompts/{prompt_id}/versions/{version_id}/restore")
+        assert restore_response.status_code == 200
+
+        restored = restore_response.json()
+        assert restored["title"] == sample_prompt_data["title"]
+        assert restored["content"] == sample_prompt_data["content"]
+        assert restored["description"] == sample_prompt_data["description"]
+
+    def test_create_prompt_version_not_found(self, client: TestClient):
+        """Return 404 when creating a version for a non-existent prompt."""
+        response = client.post("/prompts/nonexistent/versions")
+        assert response.status_code == 404
+
+    def test_restore_prompt_version_not_found(self, client: TestClient, sample_prompt_data):
+        """Return 404 when restoring from a non-existent version ID."""
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+
+        response = client.post(f"/prompts/{prompt_id}/versions/nonexistent/restore")
+        assert response.status_code == 404
+
+    def test_get_single_prompt_version(self, client: TestClient, sample_prompt_data):
+        """Return a single version snapshot for a prompt by version id."""
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+
+        version_response = client.post(f"/prompts/{prompt_id}/versions")
+        version_id = version_response.json()["id"]
+
+        response = client.get(f"/prompts/{prompt_id}/versions/{version_id}")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["id"] == version_id
+        assert data["prompt_id"] == prompt_id
+        assert data["version_number"] == 1
+
+    def test_get_single_prompt_version_not_found(
+        self,
+        client: TestClient,
+        sample_prompt_data,
+    ):
+        """Return 404 when version id does not exist for the prompt."""
+        create_response = client.post("/prompts", json=sample_prompt_data)
+        prompt_id = create_response.json()["id"]
+
+        response = client.get(f"/prompts/{prompt_id}/versions/nonexistent")
+        assert response.status_code == 404
